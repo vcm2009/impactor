@@ -8,26 +8,28 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    # Native arm64 runner; Docker's Ubuntu 22.04 build stage keeps glibc 2.35
+    # compatibility with ATVloadly's runtime.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply Windows iTunes GSA client-info patch
-        run: git apply patches/windows-itunes-client-info.patch
+      - name: Build arm64 binary against Ubuntu 22.04
+        run: >-
+          docker build
+          --file .github/dockerfiles/plumesign-arm64.Dockerfile
+          --output type=local,dest=artifact
+          .
 
-      - uses: dtolnay/rust-toolchain@1.88.0
-
-      - name: Build plumesign
-        run: cargo build --locked --release --package plumesign
-
-      - name: Verify binary
+      - name: Verify target architecture and runtime
         run: |
-          ./target/release/plumesign --version
-          ldd ./target/release/plumesign
+          file artifact/plumesign
+          readelf -h artifact/plumesign | grep -F 'AArch64'
+          docker run --rm -v "$PWD/artifact:/out:ro" ubuntu:22.04 /out/plumesign --version
 
       - uses: actions/upload-artifact@v4
         with:
           name: plumesign-linux-aarch64-windows-clientinfo
-          path: target/release/plumesign
+          path: artifact/plumesign
           if-no-files-found: error
           retention-days: 7

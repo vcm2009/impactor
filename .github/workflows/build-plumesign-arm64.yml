@@ -1,0 +1,33 @@
+name: Build patched plumesign for ATVloadly
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply Windows iTunes GSA client-info patch
+        run: git apply patches/windows-itunes-client-info.patch
+
+      - uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Build plumesign
+        run: cargo build --locked --release --package plumesign
+
+      - name: Verify binary
+        run: |
+          ./target/release/plumesign --version
+          ldd ./target/release/plumesign
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plumesign-linux-aarch64-windows-clientinfo
+          path: target/release/plumesign
+          if-no-files-found: error
+          retention-days: 7
